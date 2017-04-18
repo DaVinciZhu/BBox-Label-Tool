@@ -63,15 +63,28 @@ class LabelTool():
         self.ldBtn.grid(row = 0, column = 2, sticky = W+E)
 
         # main panel for labeling
-        self.mainPanel = Canvas(self.frame, cursor='tcross')
+        self.canvasPanel = Frame(self.frame)
+        self.canvasPanel.grid(row = 1,column = 1,rowspan = 4,sticky = W+N)
+        self.mainPanel = Canvas(self.canvasPanel, cursor='tcross')
+        self.mainPanel.configure(scrollregion = self.mainPanel.bbox("all"))
+        self.hbar = Scrollbar(self.canvasPanel,orient = HORIZONTAL)
+        self.hbar.pack(side = BOTTOM, fill = X)
+        self.hbar.config(command = self.mainPanel.xview)
+        self.vbar = Scrollbar(self.canvasPanel,orient = VERTICAL)
+        self.vbar.pack(side = RIGHT, fill = Y)
+        self.vbar.config(command = self.mainPanel.yview)
+        self.mainPanel.config(xscrollcommand = self.hbar.set,yscrollcommand = self.vbar.set)
+        self.mainPanel.pack(side = LEFT,expand = True,fill = BOTH)
+        # self.mainPanel.bind("<MouseWheel>",self.mouseWheel)
         self.mainPanel.bind("<Button-1>", self.mouseClick)
         self.mainPanel.bind("<Motion>", self.mouseMove)
         self.parent.bind("<Escape>", self.cancelBBox)  # press <Espace> to cancel current bbox
         self.parent.bind("s", self.cancelBBox)
         self.parent.bind("a", self.prevImage) # press 'a' to go backforward
         self.parent.bind("d", self.nextImage) # press 'd' to go forward
-        self.mainPanel.grid(row = 1, column = 1, rowspan = 4, sticky = W+N)
-
+        # self.mainPanel.grid(row = 2, column = 1, rowspan = 4, sticky = W+N)
+        # hbar.grid(column = 1,row = 1)
+        # vbar.grid(column = 1,row = 2,stick = E+S)
         # showing bbox info & delete bbox
         self.lb1 = Label(self.frame, text = 'Bounding boxes:')
         self.lb1.grid(row = 1, column = 2,  sticky = W+N)
@@ -85,9 +98,9 @@ class LabelTool():
         # control panel for image navigation
         self.ctrPanel = Frame(self.frame)
         self.ctrPanel.grid(row = 5, column = 1, columnspan = 2, sticky = W+E)
-        self.prevBtn = Button(self.ctrPanel, text='<< Prev', width = 10, command = self.prevImage)
+        self.prevBtn = Button(self.ctrPanel, text='<< Prev(a)', width = 10, command = self.prevImage)
         self.prevBtn.pack(side = LEFT, padx = 5, pady = 3)
-        self.nextBtn = Button(self.ctrPanel, text='Next >>', width = 10, command = self.nextImage)
+        self.nextBtn = Button(self.ctrPanel, text='Next >>(d)', width = 10, command = self.nextImage)
         self.nextBtn.pack(side = LEFT, padx = 5, pady = 3)
         self.progLabel = Label(self.ctrPanel, text = "Progress:     /    ")
         self.progLabel.pack(side = LEFT, padx = 5)
@@ -119,6 +132,7 @@ class LabelTool():
 ##        self.setImage()
 ##        self.loadDir()
 
+
     def loadDir(self, dbg = False):
         if not dbg:
             s = self.entry.get()
@@ -130,10 +144,11 @@ class LabelTool():
 ##            tkMessageBox.showerror("Error!", message = "The specified dir doesn't exist!")
 ##            return
         # get image list
+
         self.imageDir = os.path.join(r'./Images', '%03d' %(self.category))
-        self.imageList = glob.glob(os.path.join(self.imageDir, '*.JPEG'))
+        self.imageList = glob.glob(os.path.join(self.imageDir, '*.jpg'))
         if len(self.imageList) == 0:
-            print 'No .JPEG images found in the specified dir!'
+            print 'No .jpg images found in the specified dir!'
             return
 
         # default to the 1st image in the collection
@@ -149,7 +164,7 @@ class LabelTool():
         self.egDir = os.path.join(r'./Examples', '%03d' %(self.category))
         if not os.path.exists(self.egDir):
             return
-        filelist = glob.glob(os.path.join(self.egDir, '*.JPEG'))
+        filelist = glob.glob(os.path.join(self.egDir, '*.jpg'))
         self.tmp = []
         self.egList = []
         random.shuffle(filelist)
@@ -171,10 +186,24 @@ class LabelTool():
         imagepath = self.imageList[self.cur - 1]
         self.img = Image.open(imagepath)
         self.tkimg = ImageTk.PhotoImage(self.img)
-        self.mainPanel.config(width = max(self.tkimg.width(), 400), height = max(self.tkimg.height(), 400))
+        # print 'picture',self.tkimg.width(),self.tkimg.height()
+        # print 'canvas',self.mainPanel['width'],self.mainPanel['height']
+
+        self.mainPanel.config(width = max(self.tkimg.width(), 800), height = max(self.tkimg.height(), 800))
+        print 'picture2',self.tkimg.width(),self.tkimg.height()
+        print 'canvas2',self.mainPanel['width'],self.mainPanel['height']
         self.mainPanel.create_image(0, 0, image = self.tkimg, anchor=NW)
         self.progLabel.config(text = "%04d/%04d" %(self.cur, self.total))
 
+        self.mainPanel.configure(scrollregion = self.mainPanel.bbox("all"))
+        self.vbar.config(command = self.mainPanel.yview)
+        self.hbar.config(command = self.mainPanel.xview)
+
+        print 'scroll',self.hbar.get()
+        self.hbar.set(0,1)
+        self.vbar.set(0,1)
+        self.mainPanel.config(xscrollcommand = self.hbar.set,yscrollcommand = self.vbar.set)
+        print 'scroll2',self.hbar.get()
         # load labels
         self.clearBBox()
         self.imagename = os.path.split(imagepath)[-1].split('.')[0]
@@ -199,6 +228,7 @@ class LabelTool():
                     self.listbox.itemconfig(len(self.bboxIdList) - 1, fg = COLORS[(len(self.bboxIdList) - 1) % len(COLORS)])
 
     def saveImage(self):
+        # print self.labelfilename
         with open(self.labelfilename, 'w') as f:
             f.write('%d\n' %len(self.bboxList))
             for bbox in self.bboxList:
@@ -207,11 +237,13 @@ class LabelTool():
 
 
     def mouseClick(self, event):
+        x_ = int(self.mainPanel.canvasx(event.x))
+        y_ = int(self.mainPanel.canvasy(event.y))
         if self.STATE['click'] == 0:
-            self.STATE['x'], self.STATE['y'] = event.x, event.y
+            self.STATE['x'], self.STATE['y'] = x_, y_
         else:
-            x1, x2 = min(self.STATE['x'], event.x), max(self.STATE['x'], event.x)
-            y1, y2 = min(self.STATE['y'], event.y), max(self.STATE['y'], event.y)
+            x1, x2 = min(self.STATE['x'], x_), max(self.STATE['x'],x_)
+            y1, y2 = min(self.STATE['y'], y_), max(self.STATE['y'], y_)
             self.bboxList.append((x1, y1, x2, y2))
             self.bboxIdList.append(self.bboxId)
             self.bboxId = None
@@ -220,19 +252,21 @@ class LabelTool():
         self.STATE['click'] = 1 - self.STATE['click']
 
     def mouseMove(self, event):
-        self.disp.config(text = 'x: %d, y: %d' %(event.x, event.y))
+        x_ = int(self.mainPanel.canvasx(event.x))
+        y_ = int(self.mainPanel.canvasy(event.y))
+        self.disp.config(text = 'x: %d, y: %d' %(x_, y_))
         if self.tkimg:
             if self.hl:
                 self.mainPanel.delete(self.hl)
-            self.hl = self.mainPanel.create_line(0, event.y, self.tkimg.width(), event.y, width = 2)
+            self.hl = self.mainPanel.create_line(0, y_, self.tkimg.width(), y_, width = 2)
             if self.vl:
                 self.mainPanel.delete(self.vl)
-            self.vl = self.mainPanel.create_line(event.x, 0, event.x, self.tkimg.height(), width = 2)
+            self.vl = self.mainPanel.create_line(x_, 0, x_, self.tkimg.height(), width = 2)
         if 1 == self.STATE['click']:
             if self.bboxId:
                 self.mainPanel.delete(self.bboxId)
             self.bboxId = self.mainPanel.create_rectangle(self.STATE['x'], self.STATE['y'], \
-                                                            event.x, event.y, \
+                                                            x_, y_, \
                                                             width = 2, \
                                                             outline = COLORS[len(self.bboxList) % len(COLORS)])
 
